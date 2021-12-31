@@ -1,13 +1,13 @@
 # vt_upload
 A python tool to scan files at virustotal.com.  
 Сonnection is made using the key received during registration on the VT.  
-
----
+  
+  
 Installing dependencies:
 ```
 pip install vt-py colorama
 ```
----
+  
 
 ### Principle of operation:
 ---
