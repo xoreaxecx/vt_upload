@@ -5,6 +5,7 @@ import datetime
 import hashlib
 import operator
 import os
+import signal
 import sys
 import time
 import vt
@@ -13,11 +14,11 @@ from shutil import copy
 try:
     from colorama import init, Back
 except ImportError:
-    print('\n#########################################')
+    print('\n=========================================')
     print('Colorama module not found.')
     print('Colors replaced with brackets "[".')
     print('Use "pip install colorama" to add colors.')
-    print('#########################################\n')
+    print('=========================================\n')
     input('Press Enter to continue or Ctrl + C to exit...')
 
     def init():
@@ -172,7 +173,13 @@ class ScoreInfo:
         self.out_message = out_message
 
 
-def exit_program(message=''):
+# exit the program with Ctrl + C
+def signal_handler(sig, frame):
+    exit_program('KeyboardInterrupt.', 1)
+
+
+# cleanup and exit
+def exit_program(message='', code=2):
     global TMP_FILE_PATH
     if message:
         print(f'{Back.RED}{message}{Back.RESET}')
@@ -181,7 +188,7 @@ def exit_program(message=''):
     close_vt_client()
     clean_tmp_file()
     print('Exiting the program...')
-    sys.exit(2)
+    sys.exit(code)
 
 
 def separate():
@@ -479,28 +486,12 @@ def check_args(initargs):
         exit_program(f'Invalid value for switch "-d": {initargs.d}')
     else:
         DAYS_TO_SCAN_ALLOWED = initargs.d
+    # register SIGINT handler
+    signal.signal(signal.SIGINT, signal_handler)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='VT upload')
-    parser.add_argument('-names', action='store_true', help='print all target AV names and exit.')
-    parser.add_argument('-src', metavar='path/to/source', type=str, help='path to source file or directory.')
-    parser.add_argument('-key', metavar='path/to/key.txt', type=str, help='path to key file. "*script_dir/key.txt" is default.')
-    parser.add_argument('-log', metavar='path/to/log.txt', type=str, help='path to log file. "*script_dir/vt_logs/log*.txt" is default.')
-    parser.add_argument('-buf', metavar='path/to/tmp/dir', type=str, help='path to tmp dir. "*source/file/dir" is default.')
-    parser.add_argument('-t', dest='target', metavar='target_AV', action='append', default=None,
-                        help='highlight selected AV names. Multiple "-t" supported.')
-    parser.add_argument('-e', dest='ext', metavar='.ext', action='append', default='',
-                        help='file extension to process. Omit for all, multiple "-e" supported.')
-    parser.add_argument('-d', metavar='int', type=int, default=3, help='days allowed since last scan to not upload. 3 is default.')
-    args = parser.parse_args()
-
-    timer = time.time()
-    init()                      # Colorama init
-    check_args(args)            # Check arguments
-    Log.init(args.log)          # Create log file
-    set_vt_client(args.key)     # VT client init
-
+def upload_files(args):
+    global SRC_IS_FILE
     if SRC_IS_FILE:
         src_dir = os.path.split(args.src)[0]
         src_name = os.path.split(args.src)[1]
@@ -515,10 +506,26 @@ if __name__ == '__main__':
         for result in search_results:
             vt_check_file(result.dir_path, result.file_name, args.target)
 
-    delta = datetime.timedelta(seconds=(time.time() - timer))
-    total_time_msg = f'Total time spent: {str(delta)}'
-    print(total_time_msg)
-    Log.write(total_time_msg)
-    close_vt_client()
-    clean_tmp_file()
-    Log.close()
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='VT upload')
+    parser.add_argument('-names', action='store_true', help='print all target AV names and exit.')
+    parser.add_argument('-src', metavar='path/to/source', type=str, help='path to source file or directory.')
+    parser.add_argument('-key', metavar='path/to/key.txt', type=str, help='path to key file. "*script_dir/key.txt" is default.')
+    parser.add_argument('-log', metavar='path/to/log.txt', type=str, help='path to log file. "*script_dir/vt_logs/log*.txt" is default.')
+    parser.add_argument('-buf', metavar='path/to/tmp/dir', type=str, help='path to tmp dir. "*source/file/dir" is default.')
+    parser.add_argument('-t', dest='target', metavar='target_AV', action='append', default=None,
+                        help='highlight selected AV names. Multiple "-t" supported.')
+    parser.add_argument('-e', dest='ext', metavar='.ext', action='append', default='',
+                        help='file extension to process. Omit for all, multiple "-e" supported.')
+    parser.add_argument('-d', metavar='int', type=int, default=3, help='days allowed since last scan to not upload. 3 is default.')
+    arguments = parser.parse_args()
+
+    timer = time.time()                                         # Set timer
+    init()                                                      # Colorama init
+    check_args(arguments)                                       # Check arguments
+    Log.init(arguments.log)                                     # Create log file
+    set_vt_client(arguments.key)                                # VT client init
+    upload_files(arguments)                                     # Upload files
+    delta = datetime.timedelta(seconds=(time.time() - timer))   # Check time spent
+    exit_program(f'Done. Total time spent: {str(delta)}', 0)    # Cleanup and exit
