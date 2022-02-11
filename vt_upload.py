@@ -180,7 +180,6 @@ def signal_handler(sig, frame):
 
 # cleanup and exit
 def exit_program(message='', code=2):
-    global TMP_FILE_PATH
     if message:
         print(f'{Back.RED}{message}{Back.RESET}')
         Log.write(message)
@@ -435,7 +434,7 @@ def set_tmp_file_path(tmp_dir):
 
 
 def check_args(initargs):
-    global SRC_IS_FILE, TMP_FILE_PATH, DAYS_TO_SCAN_ALLOWED
+    global SRC_IS_FILE, DAYS_TO_SCAN_ALLOWED
     # print target AV names
     if initargs.names:
         show_av_names()
